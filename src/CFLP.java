@@ -6,9 +6,14 @@ public class CFLP extends AbstractCFLP {
 
     private CFLPInstance cflp;
     private int[] solution;
+    private int[][] preferences;
 
     public CFLP(CFLPInstance instance) {
         this.cflp = instance;
+
+        this.preferences = new int[this.cflp.getNumCustomers()][this.cflp.getNumFacilities()];
+        this.sortPreferences(this.preferences);
+
         this.solution = new int[this.cflp.getNumCustomers()];
         Arrays.fill(this.solution, -1);
     }
@@ -27,7 +32,7 @@ public class CFLP extends AbstractCFLP {
         if (customerId < this.cflp.getNumCustomers()){
             for (int i = 0; i < this.cflp.getNumFacilities(); i++) {
                 int[] solutionClone = solution.clone();
-                solutionClone[customerId] = i;
+                solutionClone[customerId] = this.preferences[customerId][i];
                 this.branchAndBound(customerId + 1, solutionClone);
             }
         }
@@ -75,6 +80,33 @@ public class CFLP extends AbstractCFLP {
     }
 
     /**
+     * Sort the preferences for each user.
+     *
+     * O(customers*facilities^2)
+     */
+    private void sortPreferences(int[][] preferences) {
+        int temp = 0;
+
+        for (int i = 0; i < this.cflp.getNumCustomers(); i++) {
+            for (int j = 0; j < this.cflp.getNumFacilities(); j++) {
+                preferences[i][j] = j;
+            }
+        }
+
+        for (int i = 0; i < this.cflp.getNumCustomers(); i++) {
+            for (int j = 0; j < this.cflp.getNumFacilities(); j++) {
+                for (int k = 1; k < this.cflp.getNumFacilities() - j; k++) {
+                    if (this.cflp.distance(k - 1, i) > this.cflp.distance(k, i)) {
+                        temp = preferences[i][k-1];
+                        preferences[i][k-1] = preferences[i][k];
+                        preferences[i][k] = temp;   
+                    }
+                }
+            }
+        }
+    }
+
+    /**
      * Decides whether or not to continue branching.
      *
      * O(1)
@@ -90,7 +122,6 @@ public class CFLP extends AbstractCFLP {
      * O(1) or O(log(n)) if required level is some sort of log.
      */
     private int costs(int[] solution, int[] levels, int[] bandwidths, int index) {
-        int facilityCost;
         int requiredLevel = levels[solution[index]];
 
         // get the required facility level
@@ -98,14 +129,18 @@ public class CFLP extends AbstractCFLP {
             requiredLevel++;
         }
 
-        // get the creation or upgrade cost for the facility
-        facilityCost = this.cflp.factor(requiredLevel, this.cflp.baseOpeningCostsOf(solution[index]))
-                - this.cflp.factor(levels[solution[index]], this.cflp.baseOpeningCostsOf(solution[index]));
+        try {
+            // get the creation or upgrade cost for the facility
+            int facilityCost = this.cflp.factor(requiredLevel, this.cflp.baseOpeningCostsOf(solution[index]))
+                    - this.cflp.factor(levels[solution[index]], this.cflp.baseOpeningCostsOf(solution[index]));
 
-        bandwidths[solution[index]] += this.cflp.bandwidthOf(index);
+            bandwidths[solution[index]] += this.cflp.bandwidthOf(index);
+            levels[solution[index]] = requiredLevel;
 
-        levels[solution[index]] = requiredLevel;
+            return this.cflp.distance(solution[index], index) * this.cflp.distanceCosts + facilityCost;
+        } catch (Exception e) {
+            return 0;
+        }
 
-        return this.cflp.distance(solution[index], index) * this.cflp.distanceCosts + facilityCost;
     }
 }
