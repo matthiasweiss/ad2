@@ -34,15 +34,10 @@ public class CFLP extends AbstractCFLP {
     }
 
     /**
-     * Decides whether or not to continue branching.
+     * Calculate a lower bound for the given solution. (doesnt have to be valid)
      *
-     * O(1)
+     * O(n*?) depends on costs() method
      */
-    public boolean shouldContinue(int customerId, int lower, int upper) {
-        return (this.getBestSolution() == null || this.getBestSolution().getUpperBound() > lower)
-                && upper != lower && customerId < this.cflp.getNumCustomers();
-    }
-
     public int lowerBound(int[] solution) {
         int costs = 0;
         int[] levels = new int[this.cflp.getNumFacilities()];
@@ -60,7 +55,7 @@ public class CFLP extends AbstractCFLP {
     /**
      * Calculate a (valid) upper bound for the given solution.
      *
-     * O(n?)
+     * O(n*?) depends on costs() method
      */
     public int upperBound(int[] solution) {
         int costs = 0;
@@ -79,6 +74,21 @@ public class CFLP extends AbstractCFLP {
         return costs;
     }
 
+    /**
+     * Decides whether or not to continue branching.
+     *
+     * O(1)
+     */
+    private boolean shouldContinue(int customerId, int lower, int upper) {
+        return (this.getBestSolution() == null || this.getBestSolution().getUpperBound() > lower)
+                && upper != lower && customerId < this.cflp.getNumCustomers();
+    }
+
+    /**
+     * Calculate the cost for the given solution
+     *
+     * O(1) or O(log(n)) if required level is some sort of log.
+     */
     private int costs(int[] solution, int[] levels, int[] bandwidths, int index) {
         int facilityCost;
         int requiredLevel = levels[solution[index]];
