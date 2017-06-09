@@ -16,6 +16,11 @@ public class CFLP extends AbstractCFLP {
     private int[][] preferences;
 
     /*
+     * Shortest distance for every customer to some facility
+     */
+    private int[] shortestDistances;
+
+    /*
      * Quick and dirty access to this.cflp.getNumFacilities()
      */
     private int gnf;
@@ -37,6 +42,16 @@ public class CFLP extends AbstractCFLP {
         // quick access to the number of facilities and customers
         this.gnf = this.cflp.getNumFacilities();
         this.gnc = this.cflp.getNumCustomers();
+
+        // determines the distance from every customer to its nearest facility
+        this.shortestDistances = new int[this.gnc];
+        for (int i = 0; i < this.cflp.distances.length; i++) {
+            for (int j = 0; j < this.cflp.distances[i].length; j++) {
+                if (this.shortestDistances[j] == 0 || this.shortestDistances[j] > this.cflp.distances[i][j]) {
+                    this.shortestDistances[j] = this.cflp.distances[i][j];
+                }
+            }
+        }
 
         this.setPreferences();
     }
@@ -93,7 +108,11 @@ public class CFLP extends AbstractCFLP {
         int costs = 0;
         for (int i = 0; i < solution.length; i++) {
             // if solution[i] = -1 then it isnt set yet so dont increase the costs (invalid solution)
-            if (solution[i] >= 0) { costs += this.costs(solution, levels, bandwidths, i); }
+            if (solution[i] >= 0) {
+                costs += this.costs(solution, levels, bandwidths, i);
+            } else {
+                costs += this.shortestDistances[i] * this.cflp.distanceCosts;
+            }
         }
 
         return costs;
