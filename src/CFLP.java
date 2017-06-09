@@ -27,12 +27,13 @@ public class CFLP extends AbstractCFLP {
      *
      * @param int   customerId
      * @param int[] solution
+     * O(customers*facilities) worst case
      */
     public void branchAndBound(int customerId, int[] solution) {
         int upper = this.upperBound(solution.clone());
         int lower = this.lowerBound(solution);
 
-        if (! this.shouldContinue(customerId, lower, upper)) { return; }
+        if (this.shouldBound(customerId, lower, upper)) { return; }
 
         if (customerId < this.cflp.getNumCustomers()){
             for (int i = 0; i < this.cflp.getNumFacilities(); i++) {
@@ -55,9 +56,7 @@ public class CFLP extends AbstractCFLP {
         int[] bandwidths = new int[this.cflp.getNumFacilities()];
 
         for (int i = 0; i < solution.length; i++) {
-            if (solution[i] >= 0) {
-                costs += this.costs(solution, levels, bandwidths, i);
-            }
+            if (solution[i] >= 0) costs += this.costs(solution, levels, bandwidths, i);
         }
 
         return costs;
@@ -101,6 +100,7 @@ public class CFLP extends AbstractCFLP {
             }
         }
 
+        // bubble sort, yes could be easier but the input isn't too big
         for (int i = 0; i < this.cflp.getNumCustomers(); i++) {
             for (int j = 0; j < this.cflp.getNumFacilities(); j++) {
                 for (int k = 1; k < this.cflp.getNumFacilities() - j; k++) {
@@ -115,37 +115,34 @@ public class CFLP extends AbstractCFLP {
     }
 
     /**
-     * Decides whether or not to continue branching.
+     * Decides whether or not the subtree should be bounded.
      *
      * O(1)
      */
-    private boolean shouldContinue(int customerId, int lower, int upper) {
-        return (this.getBestSolution() == null || lower < this.getBestSolution().getUpperBound())
-                && upper != lower && customerId < this.cflp.getNumCustomers();
+    private boolean shouldBound(int customerId, int lower, int upper) {
+        return (this.getBestSolution() != null && lower >= this.getBestSolution().getUpperBound())
+                || upper == lower || customerId > this.cflp.getNumCustomers();
     }
 
     /**
-     * Calculate the cost for the given solution
+     * Calculate the cost for the given solution (int i is necessary because it is called inside a loop)
      *
-     * O(1) or O(log(n)) if required level is some sort of log.
+     * O(1) if the level calculation is constant (is it tho?)
      */
-    private int costs(int[] solution, int[] levels, int[] bandwidths, int index) {
-        int requiredLevel = levels[solution[index]];
-
+    private int costs(int[] solution, int[] levels, int[] bandwidths, int i) {
         // get the required facility level
-        while (requiredLevel * this.cflp.maxBandwidthOf(solution[index]) < this.cflp.bandwidthOf(index) + bandwidths[solution[index]]){
-            requiredLevel++;
-        }
+        int level = levels[solution[i]];
+        for (; level * this.cflp.maxBandwidthOf(solution[i]) < this.cflp.bandwidthOf(i) + bandwidths[solution[i]]; level++);
 
         try {
             // get the creation or upgrade cost for the facility
-            int facilityCost = this.cflp.factor(requiredLevel, this.cflp.baseOpeningCostsOf(solution[index]))
-                    - this.cflp.factor(levels[solution[index]], this.cflp.baseOpeningCostsOf(solution[index]));
+            int facilityCost = this.cflp.factor(level, this.cflp.baseOpeningCostsOf(solution[i]))
+                    - this.cflp.factor(levels[solution[i]], this.cflp.baseOpeningCostsOf(solution[i]));
 
-            bandwidths[solution[index]] += this.cflp.bandwidthOf(index);
-            levels[solution[index]] = requiredLevel;
+            bandwidths[solution[i]] += this.cflp.bandwidthOf(i);
+            levels[solution[i]] = level;
 
-            return this.cflp.distance(solution[index], index) * this.cflp.distanceCosts + facilityCost;
+            return this.cflp.distance(solution[i], i) * this.cflp.distanceCosts + facilityCost;
         } catch (Exception e) {
             return 0;
         }
