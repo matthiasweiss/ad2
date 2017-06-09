@@ -43,15 +43,7 @@ public class CFLP extends AbstractCFLP {
         this.gnf = this.cflp.getNumFacilities();
         this.gnc = this.cflp.getNumCustomers();
 
-        // determines the distance from every customer to its nearest facility
-        this.shortestDistances = new int[this.gnc];
-        for (int i = 0; i < this.cflp.distances.length; i++) {
-            for (int j = 0; j < this.cflp.distances[i].length; j++) {
-                if (this.shortestDistances[j] == 0 || this.shortestDistances[j] > this.cflp.distances[i][j]) {
-                    this.shortestDistances[j] = this.cflp.distances[i][j];
-                }
-            }
-        }
+        this.storeShortestDistances();
 
         this.setPreferences();
     }
@@ -107,11 +99,12 @@ public class CFLP extends AbstractCFLP {
 
         int costs = 0;
         for (int i = 0; i < solution.length; i++) {
-            // if solution[i] = -1 then it isnt set yet so dont increase the costs (invalid solution)
-            if (solution[i] >= 0) {
-                costs += this.costs(solution, levels, bandwidths, i);
-            } else {
+            if (solution[i] < 0) {
+                // if solution[i] < 0 then the customer has no facility yet, so we just add costs of connecting the closest facility
                 costs += this.shortestDistances[i] * this.cflp.distanceCosts;
+            } else {
+                // if the customer has a facility assigned we calculate the costs and add them to the total
+                costs += this.costs(solution, levels, bandwidths, i);
             }
         }
 
@@ -143,6 +136,22 @@ public class CFLP extends AbstractCFLP {
     }
 
     /**
+     * Stores the distance to the nearest facility for every customer.
+     *
+     * O(customer*facility)
+     */
+    private void storeShortestDistances() {
+        this.shortestDistances = new int[this.gnc];
+        for (int i = 0; i < this.cflp.distances.length; i++) {
+            for (int j = 0; j < this.cflp.distances[i].length; j++) {
+                if (this.shortestDistances[j] == 0 || this.shortestDistances[j] > this.cflp.distances[i][j]) {
+                    this.shortestDistances[j] = this.cflp.distances[i][j];
+                }
+            }
+        }
+    }
+
+    /**
      * Sort the preferences for each user via bubble sort.
      *
      * O(customers*facilities^2)
@@ -150,7 +159,6 @@ public class CFLP extends AbstractCFLP {
     private void setPreferences() {
         // initialize 2D preferences array
         this.preferences = new int[this.gnc][this.gnf];
-        int temp = 0;
 
         // fill 2D array with indices [[0,1,2], [0,1,2]] for new int[2][3]
         for (int i = 0; i < this.gnc; i++) {
@@ -160,7 +168,7 @@ public class CFLP extends AbstractCFLP {
         }
 
         // bubble sort, yes could be easier but the input isn't too big
-        for (int i = 0; i < this.gnc; i++) {
+        for (int i = 0, temp; i < this.gnc; i++) {
             for (int j = 0; j < this.gnf; j++) {
                 for (int k = 1; k < this.gnf - j; k++) {
                     if (this.cflp.distance(k - 1, i) > this.cflp.distance(k, i)) {
