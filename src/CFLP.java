@@ -5,24 +5,29 @@ import java.util.*;
 public class CFLP extends AbstractCFLP {
 
     private CFLPInstance cflp;
-    private int[] solution;
     private int[][] preferences;
 
     public CFLP(CFLPInstance instance) {
         this.cflp = instance;
 
-        this.preferences = new int[this.cflp.getNumCustomers()][this.cflp.getNumFacilities()];
-        this.sortPreferences(this.preferences);
-
-        this.solution = new int[this.cflp.getNumCustomers()];
-        Arrays.fill(this.solution, -1);
+        this.setPreferences();
     }
 
     @Override
     public void run() {
-        this.branchAndBound(0, this.solution);
+        // Default solution is that no customer is assigned to a facility
+        int[] solution = new int[this.cflp.getNumCustomers()];
+        Arrays.fill(solution, -1);
+
+        this.branchAndBound(0, solution);
     }
 
+    /**
+     * Calculate lower + upper bound for the current solution.
+     *
+     * @param int   customerId
+     * @param int[] solution
+     */
     public void branchAndBound(int customerId, int[] solution) {
         int upper = this.upperBound(solution.clone());
         int lower = this.lowerBound(solution);
@@ -41,6 +46,7 @@ public class CFLP extends AbstractCFLP {
     /**
      * Calculate a lower bound for the given solution. (doesnt have to be valid)
      *
+     * @param int[] solution
      * O(n*?) depends on costs() method
      */
     public int lowerBound(int[] solution) {
@@ -50,7 +56,7 @@ public class CFLP extends AbstractCFLP {
 
         for (int i = 0; i < solution.length; i++) {
             if (solution[i] >= 0) {
-                costs += costs(solution, levels, bandwidths, i);
+                costs += this.costs(solution, levels, bandwidths, i);
             }
         }
 
@@ -60,6 +66,7 @@ public class CFLP extends AbstractCFLP {
     /**
      * Calculate a (valid) upper bound for the given solution.
      *
+     * @param int[] solution
      * O(n*?) depends on costs() method
      */
     public int upperBound(int[] solution) {
@@ -68,10 +75,10 @@ public class CFLP extends AbstractCFLP {
         int[] bandwidths = new int[this.cflp.getNumFacilities()];
 
         for (int i = 0; i < solution.length; i++) {
-            // if solution[i] is below zero it does not have a facility, so just assign the first one to it.
-            if (solution[i] < 0) solution[i] = 0;
+            // if solution[i] is below zero it does not have a facility, so just assign the closest
+            if (solution[i] < 0) solution[i] = this.preferences[i][0];
 
-            costs += costs(solution, levels, bandwidths, i);
+            costs += this.costs(solution, levels, bandwidths, i);
         }
 
         this.setSolution(costs, solution);
@@ -80,16 +87,17 @@ public class CFLP extends AbstractCFLP {
     }
 
     /**
-     * Sort the preferences for each user.
+     * Sort the preferences for each user via bubble sort.
      *
      * O(customers*facilities^2)
      */
-    private void sortPreferences(int[][] preferences) {
+    private void setPreferences() {
+        this.preferences = new int[this.cflp.getNumCustomers()][this.cflp.getNumFacilities()];
         int temp = 0;
 
         for (int i = 0; i < this.cflp.getNumCustomers(); i++) {
             for (int j = 0; j < this.cflp.getNumFacilities(); j++) {
-                preferences[i][j] = j;
+                this.preferences[i][j] = j;
             }
         }
 
@@ -97,9 +105,9 @@ public class CFLP extends AbstractCFLP {
             for (int j = 0; j < this.cflp.getNumFacilities(); j++) {
                 for (int k = 1; k < this.cflp.getNumFacilities() - j; k++) {
                     if (this.cflp.distance(k - 1, i) > this.cflp.distance(k, i)) {
-                        temp = preferences[i][k-1];
-                        preferences[i][k-1] = preferences[i][k];
-                        preferences[i][k] = temp;   
+                        temp = this.preferences[i][k-1];
+                        this.preferences[i][k-1] = this.preferences[i][k];
+                        this.preferences[i][k] = temp;
                     }
                 }
             }
@@ -112,7 +120,7 @@ public class CFLP extends AbstractCFLP {
      * O(1)
      */
     private boolean shouldContinue(int customerId, int lower, int upper) {
-        return (this.getBestSolution() == null || this.getBestSolution().getUpperBound() > lower)
+        return (this.getBestSolution() == null || lower < this.getBestSolution().getUpperBound())
                 && upper != lower && customerId < this.cflp.getNumCustomers();
     }
 
