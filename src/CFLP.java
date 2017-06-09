@@ -4,15 +4,32 @@ import java.util.*;
 
 public class CFLP extends AbstractCFLP {
 
+    /**
+     * CFLPInstance to solve.
+     */
     private CFLPInstance cflp;
+
+    /**
+     * 2D-Array with the order of preferred Facilities for each customer.
+     * (preferences[c][0] returns closest facility for customer c)
+     */
     private int[][] preferences;
 
+    /**
+     * Creates a new CFLP instance.
+     *
+     * @param  CFLPInstance instance
+     * O(customer*facilities^2) because of the sort in this.setPreferencs()
+     */
     public CFLP(CFLPInstance instance) {
         this.cflp = instance;
 
         this.setPreferences();
     }
 
+    /**
+     * Runs the branch and bound algorithm to determine a solution.
+     */
     @Override
     public void run() {
         // Default solution is that no customer is assigned to a facility
@@ -117,6 +134,9 @@ public class CFLP extends AbstractCFLP {
     /**
      * Decides whether or not the subtree should be bounded.
      *
+     * @param  int customerId    [description]
+     * @param  int lower         [description]
+     * @param  int upper         [description]
      * O(1)
      */
     private boolean shouldBound(int customerId, int lower, int upper) {
@@ -124,25 +144,29 @@ public class CFLP extends AbstractCFLP {
                 || upper == lower || customerId > this.cflp.getNumCustomers();
     }
 
-    /**
-     * Calculate the cost for the given solution (int i is necessary because it is called inside a loop)
-     *
-     * O(1) if the level calculation is constant (is it tho?)
-     */
-    private int costs(int[] solution, int[] levels, int[] bandwidths, int i) {
+     /**
+      * Calculate the cost for the given solution
+      *
+      * @param  int[] solution
+      * @param  int[] levels
+      * @param  int[] bandwidths
+      * @param  int   c (Customer)
+      * O(1) if the level calculation is constant (is it tho?)
+      */
+    private int costs(int[] solution, int[] levels, int[] bandwidths, int c) {
         // get the required facility level
-        int level = levels[solution[i]];
-        for (; level * this.cflp.maxBandwidthOf(solution[i]) < this.cflp.bandwidthOf(i) + bandwidths[solution[i]]; level++);
+        int level = levels[solution[c]];
+        for (; level * this.cflp.maxBandwidthOf(solution[c]) < this.cflp.bandwidthOf(c) + bandwidths[solution[c]]; level++);
 
         try {
             // get the creation or upgrade cost for the facility
-            int facilityCost = this.cflp.factor(level, this.cflp.baseOpeningCostsOf(solution[i]))
-                    - this.cflp.factor(levels[solution[i]], this.cflp.baseOpeningCostsOf(solution[i]));
+            int facilityCost = this.cflp.factor(level, this.cflp.baseOpeningCostsOf(solution[c]))
+                    - this.cflp.factor(levels[solution[c]], this.cflp.baseOpeningCostsOf(solution[c]));
 
-            bandwidths[solution[i]] += this.cflp.bandwidthOf(i);
-            levels[solution[i]] = level;
+            bandwidths[solution[c]] += this.cflp.bandwidthOf(c);
+            levels[solution[c]] = level;
 
-            return this.cflp.distance(solution[i], i) * this.cflp.distanceCosts + facilityCost;
+            return this.cflp.distance(solution[c], c) * this.cflp.distanceCosts + facilityCost;
         } catch (Exception e) {
             return 0;
         }
