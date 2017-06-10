@@ -57,7 +57,7 @@ public class CFLP extends AbstractCFLP {
         int[] solution = new int[this.cflp.getNumCustomers()];
         Arrays.fill(solution, -1);
 
-        this.branchAndBound(0, solution);
+        this.branchAndBound(solution, 0);
     }
 
     /**
@@ -67,7 +67,7 @@ public class CFLP extends AbstractCFLP {
      * @param int[] solution
      * O(customers*facilities) worst case
      */
-    public void branchAndBound(int customer, int[] solution) {
+    public void branchAndBound(int[] solution, int customer) {
         // calculate upper and lower bounds
         int upper = this.upperBound(solution.clone());
         int lower = this.lowerBound(solution);
@@ -82,7 +82,7 @@ public class CFLP extends AbstractCFLP {
             solutionClone[customer] = this.preferences[customer][i];
 
             // branch to the next customer, recursion means depth first
-            this.branchAndBound(customer + 1, solutionClone);
+            this.branchAndBound(solutionClone, customer + 1);
         }
     }
 
@@ -218,48 +218,51 @@ public class CFLP extends AbstractCFLP {
     /**
      * Get the cost if the customer ist connected to the given facility.
      * @param  int[]   solution
+     * @param  int[][] facilityCosts
      * @param  int[]   levels
      * @param  int[]   bandwidths
-     * @param  int[][] facilityCosts
-     * @param  int     customer
+     * @param  int     c (abbreviaton for customer)
      */
-    private int facilityCost(int[] solution, int[][] facilityCosts, int[] levels, int[] bandwidths, int customer) {
+    private int facilityCost(int[] solution, int[][] facilityCosts, int[] levels, int[] bandwidths, int c) {
         // the facility to calculate
-        int f = solution[customer];
+        int f = solution[c];
 
         int oldCost = facilityCosts[f][1];
-        bandwidths[f] += this.cflp.bandwidthOf(customer);
+        bandwidths[f] += this.cflp.bandwidthOf(c);
 
         // calculate the necessary level for the facility
         for(; levels[f] * this.cflp.maxBandwidthOf(f) < bandwidths[f]; levels[f]++);
 
         // calculate the level iteratively based on the current stored values
-        for (int level = facilityCosts[f][0]; level <= levels[f]; level++) {
+        for (int level = facilityCosts[f][0]; level <= levels[f]; level++, facilityCosts[f][0]++) {
             switch (level) {
+                // by default de costs are zero so dont do anything
                 case 0: {
                     break;
                 }
+
+                // for level = 1 just set the basecosts
                 case 1: {
                     facilityCosts[f][1] = this.cflp.baseOpeningCostsOf(f);
                     break;
                 }
+
+                // for level 2 just set the basecosts * 1.5
                 case 2: {
                     facilityCosts[f][2] = facilityCosts[f][1];
                     facilityCosts[f][1] = (int) Math.ceil(this.cflp.baseOpeningCostsOf(f) * 1.5);
                     break;
                 }
+
+                // if level > 2 use the formula given in the assignment
                 default: {
                     int newCost = facilityCosts[f][1] + facilityCosts[f][2] + (4 - level) * this.cflp.baseOpeningCostsOf(f);
                     facilityCosts[f][2] = facilityCosts[f][1];
                     facilityCosts[f][1] = newCost;
                 }
             }
-
-            // increase level
-            facilityCosts[f][0]++;
         }
 
-        int expansionCost = facilityCosts[f][1] - oldCost;
-        return this.cflp.distance(f, customer) * this.cflp.distanceCosts + expansionCost;
+        return this.cflp.distance(f, c) * this.cflp.distanceCosts + (facilityCosts[f][1] - oldCost);
     }
 }
