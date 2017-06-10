@@ -65,7 +65,7 @@ public class CFLP extends AbstractCFLP {
      *
      * @param int   customer
      * @param int[] solution
-     * O(customers*facilities) worst case
+     * O(customers^facilities) worst case
      */
     public void branchAndBound(int[] solution, int customer) {
         // calculate upper and lower bounds
@@ -90,7 +90,7 @@ public class CFLP extends AbstractCFLP {
      * Calculate a lower bound for the given solution. (doesnt have to be valid)
      *
      * @param int[] solution
-     * O(n*?) depends on costs() method
+     * O(customer) if facilityCost() is constant
      */
     public int lowerBound(int[] solution) {
         // levels and bandwidths of each facility
@@ -116,7 +116,7 @@ public class CFLP extends AbstractCFLP {
      * Calculate a (valid) upper bound for the given solution.
      *
      * @param int[] solution
-     * O(n*?) depends on costs() method
+     * O(customer) if facilityCost() is constant
      */
     public int upperBound(int[] solution) {
         // levels and bandwidths of each facility
@@ -222,6 +222,7 @@ public class CFLP extends AbstractCFLP {
      * @param  int[]   levels
      * @param  int[]   bandwidths
      * @param  int     c (abbreviaton for customer)
+     * O(1)
      */
     private int facilityCost(int[] solution, int[][] facilityCosts, int[] levels, int[] bandwidths, int c) {
         // the facility to calculate
