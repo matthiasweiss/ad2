@@ -105,7 +105,7 @@ public class CFLP extends AbstractCFLP {
                 costs += this.shortestDistances[i] * this.cflp.distanceCosts;
             } else {
                 // if the customer has a facility assigned we calculate the costs and add them to the total
-                costs += this.facilityCost(solution, levels, bandwidths, facilityCosts, i);
+                costs += this.facilityCost(solution, facilityCosts, levels, bandwidths, i);
             }
         }
 
@@ -130,7 +130,7 @@ public class CFLP extends AbstractCFLP {
             if (solution[i] < 0) solution[i] = this.preferences[i][0];
 
             // calculate the cost if the customer is connected to the given facility
-            costs += this.facilityCost(solution, levels, bandwidths, facilityCosts, i);
+            costs += this.facilityCost(solution, facilityCosts, levels, bandwidths, i);
         }
 
         // if costs < 0 then there was an integer overflow so dont set the solution
@@ -173,14 +173,28 @@ public class CFLP extends AbstractCFLP {
             }
         }
 
-        // bubble sort, yes could be easier but the input isn't too big
-        for (int i = 0, temp; i < this.gnc; i++) {
+        // convert distances[facilityId][customerId] to distances[customerId][facilityId]
+        int[][] transposedDistances = new int[this.gnc][gnf];
+        for (int i = 0; i < this.gnc; i++) {
             for (int j = 0; j < this.gnf; j++) {
-                for (int k = 1; k < this.gnf - j; k++) {
-                    if (this.cflp.distance(k - 1, i) > this.cflp.distance(k, i)) {
-                        temp = this.preferences[i][k-1];
-                        this.preferences[i][k-1] = this.preferences[i][k];
-                        this.preferences[i][k] = temp;
+                transposedDistances[i][j] = this.cflp.distances[j][i];
+            }
+        }
+
+        // bubble sort, yes could be easier but the input isn't too big
+        for (int c = 0, temp; c < this.gnc; c++) {
+            for (int i = 0; i < this.gnf; i++) {
+                for (int j = 1; j < this.gnf-i; j++) {
+                    if (transposedDistances[c][j-1] > transposedDistances[c][j]) {
+                        // swap in preferences
+                        temp = this.preferences[c][j-1];
+                        this.preferences[c][j-1] = this.preferences[c][j];
+                        this.preferences[c][j] = temp;
+
+                        // swap in transposedDistances
+                        temp = transposedDistances[c][j-1];
+                        transposedDistances[c][j-1] = transposedDistances[c][j];
+                        transposedDistances[c][j] = temp;
                     }
                 }
             }
@@ -209,28 +223,43 @@ public class CFLP extends AbstractCFLP {
      * @param  int[][] facilityCosts
      * @param  int     customer
      */
-    private int facilityCost(int[] solution, int[] levels, int[] bandwidths, int[][] facilityCosts, int customer) {
-        int facility = solution[customer];
-        bandwidths[facility] += this.cflp.bandwidthOf(customer);
-        int currentCost = facilityCosts[facility][0];
+    private int facilityCost(int[] solution, int[][] facilityCosts, int[] levels, int[] bandwidths, int customer) {
+        // the facility to calculate
+        int f = solution[customer];
 
-        for(; levels[facility] * this.cflp.maxBandwidthOf(facility) < bandwidths[facility]; levels[facility]++);
+        int oldCost = facilityCosts[f][1];
+        bandwidths[f] += this.cflp.bandwidthOf(customer);
 
-        for (int i = facilityCosts[facility][2]+1; i <= levels[facility]; i++) {
-            if (i == 1) {
-                facilityCosts[facility][0] = this.cflp.baseOpeningCostsOf(facility);
-            } else if (i == 2) {
-                facilityCosts[facility][1] = facilityCosts[facility][0];
-                facilityCosts[facility][0] = (int) Math.ceil(this.cflp.baseOpeningCostsOf(facility) * 1.5);
-            } else {
-                int newCost = facilityCosts[facility][0] + facilityCosts[facility][1] + (4 - i) * this.cflp.baseOpeningCostsOf(facility);
-                facilityCosts[facility][1] = facilityCosts[facility][0];
-                facilityCosts[facility][0] = newCost;
+        // calculate the necessary level for the facility
+        for(; levels[f] * this.cflp.maxBandwidthOf(f) < bandwidths[f]; levels[f]++);
+
+        // calculate the level iteratively based on the current stored values
+        for (int level = facilityCosts[f][0]; level <= levels[f]; level++) {
+            switch (level) {
+                case 0: {
+                    break;
+                }
+                case 1: {
+                    facilityCosts[f][1] = this.cflp.baseOpeningCostsOf(f);
+                    break;
+                }
+                case 2: {
+                    facilityCosts[f][2] = facilityCosts[f][1];
+                    facilityCosts[f][1] = (int) Math.ceil(this.cflp.baseOpeningCostsOf(f) * 1.5);
+                    break;
+                }
+                default: {
+                    int newCost = facilityCosts[f][1] + facilityCosts[f][2] + (4 - level) * this.cflp.baseOpeningCostsOf(f);
+                    facilityCosts[f][2] = facilityCosts[f][1];
+                    facilityCosts[f][1] = newCost;
+                }
             }
-            facilityCosts[facility][2]++;
+
+            // increase level
+            facilityCosts[f][0]++;
         }
 
-        int expansionCost = facilityCosts[facility][0] - currentCost;
-        return this.cflp.distance(facility, customer) * this.cflp.distanceCosts + expansionCost;
+        int expansionCost = facilityCosts[f][1] - oldCost;
+        return this.cflp.distance(f, customer) * this.cflp.distanceCosts + expansionCost;
     }
 }
